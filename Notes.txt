@@ -1,3 +1,0 @@
-Code for color recognition in images:
-https://www.geeksforgeeks.org/multiple-color-detection-in-real-time-using-python-opencv/
-
