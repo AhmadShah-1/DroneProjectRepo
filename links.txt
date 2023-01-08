@@ -7,3 +7,6 @@ https://www.youtube.com/watch?v=O3b8lVF93jU&ab_channel=Pysource
 
 Computer Vision (Arduino)
 https://www.youtube.com/watch?v=mfiRJ1qgToc&ab_channel=Murtaza%27sWorkshop-RoboticsandAI
+
+Code for color recognition in images:
+https://www.geeksforgeeks.org/multiple-color-detection-in-real-time-using-python-opencv/
