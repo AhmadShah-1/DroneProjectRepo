@@ -1,0 +1,9 @@
+Template matching (Route 1)
+https://www.youtube.com/watch?v=T-0lZWYWE9Y&ab_channel=TechWithTim
+
+Object tracking 
+https://pysource.com/2021/01/28/object-tracking-with-opencv-and-python/
+https://www.youtube.com/watch?v=O3b8lVF93jU&ab_channel=Pysource
+
+Computer Vision (Arduino)
+https://www.youtube.com/watch?v=mfiRJ1qgToc&ab_channel=Murtaza%27sWorkshop-RoboticsandAI
