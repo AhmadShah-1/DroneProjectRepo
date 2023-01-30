@@ -1,120 +1,160 @@
-
+import itertools
 import cv2
+import numpy as np
+import torch
+from tracker import *
+# model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 
-# cap = cv2.VideoCapture("vtest2.mp4")
 # cap = cv2.VideoCapture(0)
-# cap = cv2.VideoCapture('Images/testvideo1.mp4')
-cap = cv2.VideoCapture('Images/testvideo2.mov')
+cap = cv2.VideoCapture('background-video-people-walking.mp4')
+# cap = cv2.VideoCapture("cctv.mp4")
 
 FrameW = 500
 FrameH = 500
+first_tracking = True
+update_minimum = True
+count_updates_for_minimum = 0
+target_person_id = None
+
+# Find the center of mass of a cluster of pixels of a certain color that must reach a defined size to end the first part of the program
 
 while True:
     ret, frame = cap.read()
+    frame = cv2.resize(frame, (FrameW, FrameH))
 
-    img_rgb = cv2.resize(frame, (FrameW, FrameH))
-    img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
-    H, W = img_rgb.shape[:2]
+    # Break the program if there is no input (Prevents error at the end of the run)
+    if not ret:
+        break
 
-    template_height = int(H/5)
-    template_width = int(W/5)
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    template = cv2.resize(cv2.imread('Images/template1.png', 0), (template_height, template_width))
-    w, h = template.shape[::-1]
+    lower_red = np.array([160, 100, 100])
+    upper_red = np.array([179, 255, 255])
 
-    res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF)
+    mask = cv2.inRange(hsv, lower_red, upper_red)
 
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-    location = max_loc
+    result = cv2.bitwise_and(frame, frame, mask=mask)
 
-    bottom_right = (location[0] + w, location[1] + h)
-    cv2.rectangle(img_rgb, location, bottom_right, (128, 128, 128), 5)
+    # Find the center with the greatest cluster of the defined color:
 
-    initial_rectangle = []
-    initial_rectangle.append(location[0])
-    initial_rectangle.append(location[1])
-    initial_rectangle.append(location[0] + w)
-    initial_rectangle.append(location[1] + h)
-    initial_rectangle = tuple(initial_rectangle)
+    # Find all the connected clusters of pixels that are within the red hue range
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    cv2.imshow('Detected', img_rgb)
-    cv2.imshow('template', template)
+    # Sort the contours by area, so that the largest contour is at the first position
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    # Draw the largest contour on the original image
+    cv2.drawContours(frame, contours, 0, (0, 255, 0), 2)
+
+    # Calculate the center of mass of the largest contour
+    if len(contours) > 0 and cv2.contourArea(contours[0]) > 0:
+        M = cv2.moments(contours[0])
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+
+        # Find the area of the largest contour
+        area = cv2.contourArea(contours[0])
+        # Set the threshold value for the area
+        threshold = 3000
+        if area > threshold:
+            # Draw a circle around the center of mass (Going to use this to pass to the program
+            cv2.circle(frame, (cX, cY), 7, (255, 255, 255), -1)
+
+            # If testing Circle remove the break func here
+            # The break func is to stop the program to pass to the next program once the fulfillment for the program has been fulfilled
+            # The circle drawing at the top is merely for testing and optimization for the detection features
+            break
+            print(area)
+
+    cv2.imshow('frame', frame)
+    cv2.imshow('result', result)
+    cv2.imshow('mask', mask)
 
     if cv2.waitKey(1) == ord('q'):
         break
 
 
+# For Testing:
+# cX = 219
+# cY = 313
+
+# Using Yolo find and track the person closest to the pixel location previously provided
+
+def POINTS(event, x, y, flags, param):
+    if event == cv2.EVENT_MOUSEMOVE:
+        colorsBGR = [x, y]
+        print(colorsBGR)
 
 
-# Cod
-tracker_types = ['BOOSTING', 'MIL', 'KCF', 'TLD', 'MEDIAN-FLOW', 'GOTURN', 'MOSSE', 'CSRT']
-tracker_type = tracker_types[7]
+cv2.namedWindow('FRAME')
+cv2.setMouseCallback('FRAME', POINTS)
 
-# So far i think CSRT is the one im going with
+tracker = Tracker()
 
-if tracker_type == 'BOOSTING':
-    tracker = cv2.legacy.TrackerBoosting_create()
-if tracker_type == 'MIL':
-    tracker = cv2.TrackerMIL_create()
-if tracker_type == 'KCF':
-    tracker = cv2.TrackerKCF_create()
-if tracker_type == 'TLD':
-    tracker = cv2.legacy.TrackerTLD_create()
-if tracker_type == 'MEDIAN-FLOW':
-    tracker = cv2.legacy.TrackerMedianFlow_create()
-if tracker_type == 'GOTURN':
-    tracker = cv2.TrackerGOTURN_create()
-if tracker_type == 'MOSSE':
-    tracker = cv2.legacy.TrackerMOSSE_create()
-if tracker_type == "CSRT":
-    tracker = cv2.TrackerCSRT_create()
-
-
-# UPCOMING EDIT
-ret, frame = cap.read()
-frame = cv2.resize(frame, (FrameW, FrameH))
-
-frame_height, frame_width = frame.shape[:2]
-output = cv2.VideoWriter(f'{tracker_type}.avi',
-                         cv2.VideoWriter_fourcc(*'XVID'), 60.0,
-                         (frame_width // 2, frame_height // 2), True)
-
-
-# Select the bounding box in the first frame
-bbox = initial_rectangle
-ret = tracker.init(frame, bbox)
-
-
-# Start tracking
 while True:
     ret, frame = cap.read()
     frame = cv2.resize(frame, (FrameW, FrameH))
-    # frame = cv2.resize(frame, [frame_width // 2, frame_height // 2])
 
-    if not ret:
-        print('something went wrong')
-        break
-    timer = cv2.getTickCount()
-    ret, bbox = tracker.update(frame)
-    fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-    if ret:
-        p1 = (int(bbox[0]), int(bbox[1]))
-        p2 = (int(bbox[2]), int(bbox[3]))
-        # Original Code: p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-        cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
+    # Detection
+    results = model(frame)
+    # frame = np.squeeze(results.render())
+
+    # Stores the xmin xmax and ymin and ymax to create a bounding box
+    # Also returns the confidence level and class (meaning what it is)
+    list = []
+    for index, row in results.pandas().xyxy[0].iterrows():
+        # Just print it to show all that data
+        # print(row)
+
+        # Find sides of Bounding boxes
+        x1 = int(row['xmin'])
+        y1 = int(row['ymin'])
+        x2 = int(row['xmax'])
+        y2 = int(row['ymax'])
+        # Get name of Classes to name the boxes
+        b = str(row['name'])
+
+        # Because we only want to detect people we exclude everything else
+        if 'person' in b:
+            list.append([x1, y1, x2, y2])
+        # use this to create a basic bounding box with id name on top
+        # cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
+        # cv2.putText(frame, b, (x1,y1), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255), 2)
+
+    # Getting the Cords of the boxes and running it through the tracker algorithm
+    boxes_ids = tracker.update(list)
+    for box_id in boxes_ids:
+        x, y, w, h, id = box_id
+        cv2.rectangle(frame, (x, y), (w, h), (255, 0, 255), 2)
+        cv2.putText(frame, str(id), (x, y), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 2)
+
+        # Calculate the distance from the cX, cY provided and only allow it to identify the target once so it doesn't keep identifying
+        # if first_tracking:
+        centerx = int((x + w)/2)
+        centery = int((y + h)/2)
+        cv2.circle(frame, (centerx, centery), 7, (255, 255, 255), -1)
+
+    if target_person_id is None:
+        distances = []
+        for i in range(len(boxes_ids)):
+            distances.append(np.sqrt((cX - boxes_ids[i][0]) ** 2 + (cY - boxes_ids[i][1]) ** 2))
+        target_person_id = np.argmin(distances)
     else:
-        cv2.putText(frame, "Tracking failure detected", (100, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-    cv2.putText(frame, tracker_type + " Tracker", (100, 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-    cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-    cv2.imshow("Tracking", frame)
-    output.write(frame)
-    k = cv2.waitKey(1) & 0xff
-    if k == 27:
+        # If we already have a person to track, find the person with the same ID in the current frame
+        for i in range(len(boxes_ids)):
+            if boxes_ids[i][-1] == target_person_id:
+                x1, y1, w1, h1, id1 = boxes_ids[i]
+                cX, cY = (boxes_ids[i][0], boxes_ids[i][1])
+                cv2.rectangle(frame, (x1, y1), (w1, h1), (255, 0, 0), 2)
+                break
+
+    # first_tracking = False
+    cv2.imshow('FRAME', frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:
         break
 
 cap.release()
-output.release()
 cv2.destroyAllWindows()
+
