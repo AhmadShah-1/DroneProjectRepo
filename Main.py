@@ -1,120 +1,117 @@
+# Python code for Multiple Color Detection
 
+
+import numpy as np
 import cv2
 
-# cap = cv2.VideoCapture("vtest2.mp4")
-# cap = cv2.VideoCapture(0)
-# cap = cv2.VideoCapture('Images/testvideo1.mp4')
-cap = cv2.VideoCapture('Images/testvideo2.mov')
+# Capturing video through webcam
+webcam = cv2.VideoCapture(0)
 
-FrameW = 500
-FrameH = 500
+# Start a while loop
+while (1):
 
-while True:
-    ret, frame = cap.read()
+    # Reading the video from the
+    # webcam in image frames
+    _, imageFrame = webcam.read()
 
-    img_rgb = cv2.resize(frame, (FrameW, FrameH))
-    img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
-    H, W = img_rgb.shape[:2]
+    # Convert the imageFrame in
+    # BGR(RGB color space) to
+    # HSV(hue-saturation-value)
+    # color space
+    hsvFrame = cv2.cvtColor(imageFrame, cv2.COLOR_BGR2HSV)
 
-    template_height = int(H/5)
-    template_width = int(W/5)
+    # Set range for red color and
+    # define mask
+    red_lower = np.array([136, 87, 111], np.uint8)
+    red_upper = np.array([180, 255, 255], np.uint8)
+    red_mask = cv2.inRange(hsvFrame, red_lower, red_upper)
 
-    template = cv2.resize(cv2.imread('Images/template1.png', 0), (template_height, template_width))
-    w, h = template.shape[::-1]
+    # Set range for green color and
+    # define mask
+    green_lower = np.array([25, 52, 72], np.uint8)
+    green_upper = np.array([102, 255, 255], np.uint8)
+    green_mask = cv2.inRange(hsvFrame, green_lower, green_upper)
 
-    res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF)
+    # Set range for blue color and
+    # define mask
+    blue_lower = np.array([94, 80, 2], np.uint8)
+    blue_upper = np.array([120, 255, 255], np.uint8)
+    blue_mask = cv2.inRange(hsvFrame, blue_lower, blue_upper)
 
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-    location = max_loc
+    # Morphological Transform, Dilation
+    # for each color and bitwise_and operator
+    # between imageFrame and mask determines
+    # to detect only that particular color
+    kernal = np.ones((5, 5), "uint8")
 
-    bottom_right = (location[0] + w, location[1] + h)
-    cv2.rectangle(img_rgb, location, bottom_right, (128, 128, 128), 5)
+    # For red color
+    red_mask = cv2.dilate(red_mask, kernal)
+    res_red = cv2.bitwise_and(imageFrame, imageFrame,
+                              mask=red_mask)
 
-    initial_rectangle = []
-    initial_rectangle.append(location[0])
-    initial_rectangle.append(location[1])
-    initial_rectangle.append(location[0] + w)
-    initial_rectangle.append(location[1] + h)
-    initial_rectangle = tuple(initial_rectangle)
+    # For green color
+    green_mask = cv2.dilate(green_mask, kernal)
+    res_green = cv2.bitwise_and(imageFrame, imageFrame,
+                                mask=green_mask)
 
-    cv2.imshow('Detected', img_rgb)
-    cv2.imshow('template', template)
+    # For blue color
+    blue_mask = cv2.dilate(blue_mask, kernal)
+    res_blue = cv2.bitwise_and(imageFrame, imageFrame,
+                               mask=blue_mask)
 
-    if cv2.waitKey(1) == ord('q'):
+    # Creating contour to track red color
+    contours, hierarchy = cv2.findContours(red_mask,
+                                           cv2.RETR_TREE,
+                                           cv2.CHAIN_APPROX_SIMPLE)
+
+    for pic, contour in enumerate(contours):
+        area = cv2.contourArea(contour)
+        if (area > 300):
+            x, y, w, h = cv2.boundingRect(contour)
+            imageFrame = cv2.rectangle(imageFrame, (x, y),
+                                       (x + w, y + h),
+                                       (0, 0, 255), 2)
+
+            cv2.putText(imageFrame, "Red Colour", (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                        (0, 0, 255))
+
+            # Creating contour to track green color
+    contours, hierarchy = cv2.findContours(green_mask,
+                                           cv2.RETR_TREE,
+                                           cv2.CHAIN_APPROX_SIMPLE)
+
+    for pic, contour in enumerate(contours):
+        area = cv2.contourArea(contour)
+        if (area > 300):
+            x, y, w, h = cv2.boundingRect(contour)
+            imageFrame = cv2.rectangle(imageFrame, (x, y),
+                                       (x + w, y + h),
+                                       (0, 255, 0), 2)
+
+            cv2.putText(imageFrame, "Green Colour", (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1.0, (0, 255, 0))
+
+    # Creating contour to track blue color
+    contours, hierarchy = cv2.findContours(blue_mask,
+                                           cv2.RETR_TREE,
+                                           cv2.CHAIN_APPROX_SIMPLE)
+    for pic, contour in enumerate(contours):
+        area = cv2.contourArea(contour)
+        if (area > 300):
+            x, y, w, h = cv2.boundingRect(contour)
+            imageFrame = cv2.rectangle(imageFrame, (x, y),
+                                       (x + w, y + h),
+                                       (255, 0, 0), 2)
+
+            cv2.putText(imageFrame, "Blue Colour", (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1.0, (255, 0, 0))
+
+    # Program Termination
+    cv2.imshow("Multiple Color Detection in Real-TIme", imageFrame)
+    if cv2.waitKey(10) & 0xFF == ord('q'):
+        cap.release()
+        cv2.destroyAllWindows()
         break
-
-
-
-
-# Cod
-tracker_types = ['BOOSTING', 'MIL', 'KCF', 'TLD', 'MEDIAN-FLOW', 'GOTURN', 'MOSSE', 'CSRT']
-tracker_type = tracker_types[7]
-
-# So far i think CSRT is the one im going with
-
-if tracker_type == 'BOOSTING':
-    tracker = cv2.legacy.TrackerBoosting_create()
-if tracker_type == 'MIL':
-    tracker = cv2.TrackerMIL_create()
-if tracker_type == 'KCF':
-    tracker = cv2.TrackerKCF_create()
-if tracker_type == 'TLD':
-    tracker = cv2.legacy.TrackerTLD_create()
-if tracker_type == 'MEDIAN-FLOW':
-    tracker = cv2.legacy.TrackerMedianFlow_create()
-if tracker_type == 'GOTURN':
-    tracker = cv2.TrackerGOTURN_create()
-if tracker_type == 'MOSSE':
-    tracker = cv2.legacy.TrackerMOSSE_create()
-if tracker_type == "CSRT":
-    tracker = cv2.TrackerCSRT_create()
-
-
-# UPCOMING EDIT
-ret, frame = cap.read()
-frame = cv2.resize(frame, (FrameW, FrameH))
-
-frame_height, frame_width = frame.shape[:2]
-output = cv2.VideoWriter(f'{tracker_type}.avi',
-                         cv2.VideoWriter_fourcc(*'XVID'), 60.0,
-                         (frame_width // 2, frame_height // 2), True)
-
-
-# Select the bounding box in the first frame
-bbox = initial_rectangle
-ret = tracker.init(frame, bbox)
-
-
-# Start tracking
-while True:
-    ret, frame = cap.read()
-    frame = cv2.resize(frame, (FrameW, FrameH))
-    # frame = cv2.resize(frame, [frame_width // 2, frame_height // 2])
-
-    if not ret:
-        print('something went wrong')
-        break
-    timer = cv2.getTickCount()
-    ret, bbox = tracker.update(frame)
-    fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-    if ret:
-        p1 = (int(bbox[0]), int(bbox[1]))
-        p2 = (int(bbox[2]), int(bbox[3]))
-        # Original Code: p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-        cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
-    else:
-        cv2.putText(frame, "Tracking failure detected", (100, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-    cv2.putText(frame, tracker_type + " Tracker", (100, 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-    cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-    cv2.imshow("Tracking", frame)
-    output.write(frame)
-    k = cv2.waitKey(1) & 0xff
-    if k == 27:
-        break
-
-cap.release()
-output.release()
-cv2.destroyAllWindows()
